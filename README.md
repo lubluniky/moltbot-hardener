@@ -131,7 +131,7 @@ moltbot gateway uninstall
 
 ```bash
 # One-liner install and run
-curl -fsSL https://molt.bot/install-hardener.sh | bash && moltbot-hardener scan
+curl -fsSL https://raw.githubusercontent.com/lubluniky/moltbot-hardener/main/install-hardener.sh | bash && moltbot-hardener scan
 
 # Or with npx (no install)
 npx moltbot-hardener scan
@@ -222,7 +222,7 @@ Select option: _
 
 ```bash
 # Using curl
-curl -fsSL https://molt.bot/install-hardener.sh | bash
+curl -fsSL https://raw.githubusercontent.com/lubluniky/moltbot-hardener/main/install-hardener.sh | bash
 
 # Using Homebrew
 brew install moltbot/tap/moltbot-hardener
@@ -234,7 +234,7 @@ npm install -g moltbot-hardener
 ### From Source
 
 ```bash
-git clone https://github.com/moltbot/moltbot-hardener.git
+git clone https://github.com/lubluniky/moltbot-hardener.git
 cd moltbot-hardener
 go build -o moltbot-hardener ./cmd/hardener
 ```
