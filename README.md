@@ -138,36 +138,94 @@ moltbot gateway stop && ./hardener apply --yes && moltbot gateway start
 
 ## Vulnerabilities Detected
 
+**70 vulnerabilities** documented across 3 categories:
+
+### Config Vulnerabilities (V01-V26) - Fixable via CLI
+
 | ID | Name | Severity | Auto-Fix |
 |----|------|----------|----------|
 | V01 | Gateway Exposure | Critical | Yes |
 | V02 | DM Policy Open | Critical | Yes |
 | V03 | Sandbox Disabled | Critical | Partial |
 | V04 | Plaintext Credentials | Critical | Yes |
-| V05 | Prompt Injection Surface | Critical | Partial |
+| V05 | Prompt Injection Surface | Critical | Manual |
 | V06 | Dangerous Commands Enabled | Critical | Yes |
 | V07 | No Network Isolation | High | Yes |
 | V08 | Elevated Tool Access | Critical | Yes |
 | V09 | No Audit Logging | Medium | Yes |
 | V10 | Weak Pairing Codes | Medium | Yes |
-| V11 | Unrestricted Bind Mounts | High | Yes |
+| V11 | Unrestricted Bind Mounts | High | Partial |
 | V12 | DNS Poisoning Risk | Medium | Yes |
-| V13 | Shell Injection Vectors | Critical | Partial |
+| V13 | Shell Injection Vectors | Critical | Manual |
 | V14 | DM Scope Context Leak | High | Yes |
 | V15 | Pairing DoS | Medium | Yes |
 | V16 | Browser Sandbox Escape | Critical | Yes |
 | V17 | World-Readable Config | Critical | Yes |
 | V18 | State Directory Exposure | Critical | Yes |
-| V19 | Synced Folder Leak | High | Partial |
+| V19 | Synced Folder Leak | High | Manual |
 | V20 | Tailscale Funnel Exposure | Critical | Yes |
 | V21 | Plugin Trust Boundary | High | Partial |
 | V22 | Legacy Model Risk | High | Partial |
 | V23 | Control UI Insecure Auth | Critical | Yes |
-| V24 | Hooks Token Reuse | Medium | Yes |
+| V24 | Hooks Token Reuse | Medium | Manual |
 | V25 | Group Policy Open | Critical | Yes |
 | V26 | mDNS Information Disclosure | Medium | Yes |
 
-See [docs/vulnerabilities/](docs/vulnerabilities/) for detailed documentation on each vulnerability.
+### Code-Level Vulnerabilities (V27-V50)
+
+| ID | Name | Severity |
+|----|------|----------|
+| V27 | Timing Attack on Token Comparison | High |
+| V28 | Hook Token in Query Params | Medium |
+| V29 | OAuth Refresh Token Unencrypted | Medium |
+| V30 | Session Key Spoofing | High |
+| V31 | WebSocket Handshake Replay | Low |
+| V32 | Plugin Code No Verification | Critical |
+| V33 | NPM Supply Chain Attack | Critical |
+| V34 | Plugin Hook Injection | High |
+| V35 | Plugin Allowlist Not Enforced | High |
+| V36 | Plugin Runtime Dangerous API | High |
+| V37 | Plugin HTTP Route Hijacking | Medium |
+| V38 | Plugin CLI Command Injection | Medium |
+| V39 | No WebSocket Rate Limiting | Medium |
+| V40 | No HTTP Request Timeout | Medium |
+| V41 | WebSocket Origin Not Validated | Medium |
+| V42 | SSRF Redirect Bypass | Medium |
+| V43 | Proxy Header Trust Issues | Medium |
+| V44 | Log Directory World-Readable | Medium |
+| V45 | Session Transcript Path Injection | Medium |
+| V46 | Gateway Lock File Predictable | Medium |
+| V47 | Config Backup Exposes Secrets | Low |
+| V48 | Plugin Archive Zip Bomb | Medium |
+| V49 | Session Key Collision | Medium |
+| V50 | Unicode Bypass in Allowlists | Medium |
+
+### Advanced Vulnerabilities (V51-V70)
+
+| ID | Name | Severity |
+|----|------|----------|
+| V51 | SCP Command Injection | High |
+| V52 | Forwarded Message Spoofing | Medium |
+| V53 | Media Filename Path Traversal | Low |
+| V54 | Unbounded History Memory | Medium |
+| V55 | Sticker Cache No Size Limit | Low |
+| V56 | Telegram Link Injection | Low |
+| V57 | Slack Mrkdwn Token Bypass | Low |
+| V58 | Thread ID Integer Overflow | Low |
+| V59 | No Rate Limit on Pairing Generation | Medium |
+| V60 | Regex ReDoS in Mentions | Low |
+| V61 | Thread Starter Context Leak | Low |
+| V62 | DNS Rebinding via SSRF | Medium |
+| V63 | mDNS Exposes Internal Ports | Low |
+| V64 | Self-Signed Cert Weak Key | Low |
+| V65 | Control UI Auth Bypass Config | Low |
+| V66 | Pairing Code Brute Force | Low |
+| V67 | API Key in Error Messages | Low |
+| V68 | WebSocket Buffer Overflow | Low |
+| V69 | Device Auth Store Unencrypted | Low |
+| V70 | Exec Approvals Token Cleartext | Medium |
+
+See [MANIFEST_FOR_LLM.md](MANIFEST_FOR_LLM.md) for full documentation with checks and fixes.
 
 ### Partial Auto-Fix
 
