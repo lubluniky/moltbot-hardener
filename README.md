@@ -1,0 +1,443 @@
+# Moltbot Hardener
+
+A comprehensive security hardening tool for [Moltbot](https://github.com/moltbot/moltbot) installations. Scans for vulnerabilities, applies fixes, and helps you run your AI gateway securely.
+
+```
+ _____ _____ __    _____ _____ _____ _____
+|     |     |  |  |_   _| __  |     |_   _|
+| | | |  |  |  |__  | | | __ -|  |  | | |
+|_|_|_|_____|_____| |_| |_____|_____| |_|
+        H A R D E N E R  v1.0.0
+
+[====================================] 100%
+Scanning moltbot configuration...
+
+CRITICAL  V01 Gateway Exposure
+          Gateway bound to 0.0.0.0 without authentication
+          Fix: Set gateway.bind to loopback or configure auth
+
+WARNING   V02 DM Policy Open
+          WhatsApp DMs are open to anyone
+          Fix: Set dmPolicy to pairing or allowlist
+
+INFO      V09 Audit Logging Disabled
+          No audit logging configured
+          Fix: Enable logging.file for audit trail
+
+Found: 3 critical, 5 warnings, 2 info
+Run with --fix to apply automatic remediations
+```
+
+---
+
+## ⚠️ IMPORTANT: When to Run Hardener
+
+### TL;DR
+
+| Action | Bot Running? | Restart Required? |
+|--------|-------------|-------------------|
+| `audit` (scan only) | ✅ Yes, safe | No |
+| `apply` (fix issues) | ❌ **Stop bot first** | **Yes** |
+
+### Detailed Explanation
+
+#### 🔍 Scanning (`hardener audit`)
+**Can run anytime** - even with bot running.
+- Only reads config files and checks permissions
+- Does not modify anything
+- Safe to run in production
+
+```bash
+# Safe to run while bot is active
+./hardener audit
+./hardener audit --json > report.json
+```
+
+#### 🔧 Applying Fixes (`hardener apply`)
+**Stop the bot first**, then apply, then restart.
+
+**Why?**
+1. **Gateway changes** (V01, V20, V23) - bind address and auth token are read at startup only
+2. **Sandbox changes** (V03, V07, V11) - Docker settings cached on agent start
+3. **Race conditions** - bot may overwrite config while hardener is editing
+4. **File locks** - session/credential files may be locked by running process
+
+### Recommended Workflow
+
+```bash
+# Step 1: Stop the gateway (uses launchd on macOS, systemd on Linux)
+moltbot gateway stop
+
+# Step 2: Verify gateway is stopped
+moltbot gateway status
+
+# Step 3: Run hardener
+./hardener audit                    # Check what needs fixing
+./hardener apply --interactive      # Apply fixes with confirmation
+
+# Step 4: Restart the gateway
+moltbot gateway start
+# Or restart (stop + start):
+moltbot gateway restart
+```
+
+### Quick One-Liner (Stop → Harden → Start)
+
+```bash
+# Using official moltbot commands (recommended)
+moltbot gateway stop && ./hardener apply --yes && moltbot gateway start
+
+# macOS alternative (if launchd service not installed)
+pkill -f moltbot-gateway; sleep 2; ./hardener apply --yes; moltbot gateway run &
+
+# Linux (systemd)
+sudo systemctl stop moltbot && ./hardener apply --yes && sudo systemctl start moltbot
+```
+
+### Gateway Service Management
+
+Moltbot uses system service managers:
+- **macOS**: launchd (`~/Library/LaunchAgents/bot.molt.gateway.plist`)
+- **Linux**: systemd (if installed via `moltbot gateway install`)
+
+```bash
+# Install gateway as system service
+moltbot gateway install
+
+# Service lifecycle
+moltbot gateway start
+moltbot gateway stop
+moltbot gateway restart
+moltbot gateway status
+
+# Uninstall service
+moltbot gateway uninstall
+```
+
+### What If I Apply While Bot Is Running?
+
+| What Happens | Risk Level |
+|--------------|-----------|
+| Config changes won't take effect until restart | ⚠️ Medium |
+| Gateway keeps old bind/auth settings | 🔴 High - still vulnerable |
+| File permission changes apply immediately | ✅ Low |
+| Credential files may fail to update (locked) | ⚠️ Medium |
+
+**Bottom line:** Hardener won't crash your bot, but fixes won't fully apply until restart.
+
+---
+
+## Quick Start
+
+```bash
+# One-liner install and run
+curl -fsSL https://molt.bot/install-hardener.sh | bash && moltbot-hardener scan
+
+# Or with npx (no install)
+npx moltbot-hardener scan
+
+# Apply automatic fixes
+moltbot-hardener scan --fix
+```
+
+## Features
+
+- Scans 26 known vulnerabilities across gateway, channels, tools, and filesystem
+- Interactive TUI with real-time scanning progress
+- Automatic remediation for most issues
+- Generates detailed security reports
+- Integrates with existing `moltbot security audit`
+
+## Vulnerabilities Detected
+
+| ID | Name | Severity | Auto-Fix |
+|----|------|----------|----------|
+| V01 | [Gateway Exposure](docs/vulnerabilities/V01-gateway-exposure.md) | Critical | Yes |
+| V02 | [DM Policy Open](docs/vulnerabilities/V02-dm-policy-open.md) | Critical | Yes |
+| V03 | [Sandbox Disabled](docs/vulnerabilities/V03-sandbox-disabled.md) | Critical | ⚠️ Partial |
+| V04 | [Plaintext Credentials](docs/vulnerabilities/V04-plaintext-credentials.md) | Critical | Yes |
+| V05 | [Prompt Injection Surface](docs/vulnerabilities/V05-prompt-injection.md) | Critical | ⚠️ Partial |
+| V06 | [Dangerous Commands Enabled](docs/vulnerabilities/V06-dangerous-commands.md) | Critical | Yes |
+| V07 | [No Network Isolation](docs/vulnerabilities/V07-no-network-isolation.md) | High | Yes |
+| V08 | [Elevated Tool Access](docs/vulnerabilities/V08-elevated-tool-access.md) | Critical | Yes |
+| V09 | [No Audit Logging](docs/vulnerabilities/V09-no-audit-logging.md) | Medium | Yes |
+| V10 | [Weak Pairing Codes](docs/vulnerabilities/V10-weak-pairing-codes.md) | Medium | Yes |
+| V11 | [Unrestricted Bind Mounts](docs/vulnerabilities/V11-unrestricted-bind-mounts.md) | High | Yes |
+| V12 | [DNS Poisoning Risk](docs/vulnerabilities/V12-dns-poisoning.md) | Medium | Yes |
+| V13 | [Shell Injection Vectors](docs/vulnerabilities/V13-shell-injection.md) | Critical | ⚠️ Partial |
+| V14 | [DM Scope Context Leak](docs/vulnerabilities/V14-dm-scope-context-leak.md) | High | Yes |
+| V15 | [Pairing DoS](docs/vulnerabilities/V15-pairing-dos.md) | Medium | Yes |
+| V16 | [Browser Sandbox Escape](docs/vulnerabilities/V16-browser-sandbox-escape.md) | Critical | Yes |
+| V17 | [World-Readable Config](docs/vulnerabilities/V17-world-readable-config.md) | Critical | Yes |
+| V18 | [State Directory Exposure](docs/vulnerabilities/V18-state-dir-exposure.md) | Critical | Yes |
+| V19 | [Synced Folder Leak](docs/vulnerabilities/V19-synced-folder-leak.md) | High | ⚠️ Partial |
+| V20 | [Tailscale Funnel Exposure](docs/vulnerabilities/V20-tailscale-funnel.md) | Critical | Yes |
+| V21 | [Plugin Trust Boundary](docs/vulnerabilities/V21-plugin-trust.md) | High | ⚠️ Partial |
+| V22 | [Legacy Model Risk](docs/vulnerabilities/V22-legacy-model-risk.md) | High | ⚠️ Partial |
+| V23 | [Control UI Insecure Auth](docs/vulnerabilities/V23-control-ui-insecure.md) | Critical | Yes |
+| V24 | [Hooks Token Reuse](docs/vulnerabilities/V24-hooks-token-reuse.md) | Medium | Yes |
+| V25 | [Group Policy Open](docs/vulnerabilities/V25-group-policy-open.md) | Critical | Yes |
+| V26 | [mDNS Information Disclosure](docs/vulnerabilities/V26-mdns-disclosure.md) | Medium | Yes |
+
+### Understanding "Partial" Auto-Fix
+
+Some vulnerabilities are marked **Partial** because automatic fixing could break your bot:
+
+| ID | Why Partial | What Hardener Does |
+|----|-------------|-------------------|
+| **V03** Sandbox Disabled | Enabling sandbox may break custom bind mounts or setup commands | Prompts for confirmation, shows affected mounts |
+| **V05** Prompt Injection | Requires code changes in moltbot itself, not just config | Reports issue, provides manual fix guide |
+| **V13** Shell Injection | `setupCommand` may be legitimate (e.g., `npm install`) | Warns about dangerous patterns, doesn't delete |
+| **V19** Synced Folder | Moving credentials could cause data loss | Detects and warns, user must move manually |
+| **V21** Plugin Trust | Unknown which plugins user actually needs | Asks which plugins to allow |
+| **V22** Legacy Model | User's choice which AI model to use | Warns about models without safety features |
+
+**Interactive Mode** (`--interactive` or `-i`) will prompt you for each partial fix:
+
+```bash
+./hardener apply --interactive
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🔧 V03: Sandbox Disabled
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Sandbox is currently disabled. Enabling it will isolate
+code execution in Docker containers.
+
+⚠️  Found 2 bind mounts that may be affected:
+   - /home/user/project:/app
+   - /tmp/cache:/cache
+
+What would you like to do?
+  [1] Apply this fix
+  [2] Skip this fix
+  [3] Apply all remaining fixes
+  [4] Abort
+
+Select option: _
+```
+
+## Installation
+
+### macOS / Linux
+
+```bash
+# Using curl
+curl -fsSL https://molt.bot/install-hardener.sh | bash
+
+# Using Homebrew
+brew install moltbot/tap/moltbot-hardener
+
+# Using npm
+npm install -g moltbot-hardener
+```
+
+### From Source
+
+```bash
+git clone https://github.com/moltbot/moltbot-hardener.git
+cd moltbot-hardener
+go build -o moltbot-hardener ./cmd/hardener
+```
+
+## Usage
+
+### Basic Scan
+
+```bash
+# Scan default moltbot installation
+moltbot-hardener scan
+
+# Scan specific config file
+moltbot-hardener scan --config ~/.moltbot/moltbot.json
+
+# Scan specific state directory
+moltbot-hardener scan --state-dir ~/.moltbot
+```
+
+### Apply Fixes
+
+```bash
+# Interactive fix mode (prompts for each fix)
+moltbot-hardener scan --fix
+
+# Auto-apply all safe fixes
+moltbot-hardener scan --fix --yes
+
+# Dry-run (show what would be fixed)
+moltbot-hardener scan --fix --dry-run
+```
+
+### Generate Reports
+
+```bash
+# JSON report
+moltbot-hardener scan --output json > report.json
+
+# Markdown report
+moltbot-hardener scan --output markdown > SECURITY_REPORT.md
+
+# HTML report
+moltbot-hardener scan --output html > report.html
+```
+
+### Filter by Severity
+
+```bash
+# Only critical vulnerabilities
+moltbot-hardener scan --severity critical
+
+# Critical and high
+moltbot-hardener scan --severity critical,high
+
+# Exclude info-level findings
+moltbot-hardener scan --min-severity medium
+```
+
+### Continuous Monitoring
+
+```bash
+# Watch mode (re-scan on config changes)
+moltbot-hardener watch
+
+# CI/CD mode (exit non-zero on critical findings)
+moltbot-hardener scan --ci --fail-on critical
+```
+
+## Configuration Options
+
+Create `~/.moltbot-hardener.yaml` to customize behavior:
+
+```yaml
+# Default scan options
+scan:
+  config_path: ~/.moltbot/moltbot.json
+  state_dir: ~/.moltbot
+  include_filesystem: true
+  include_channels: true
+  deep_probe: false
+
+# Findings to ignore (by check ID)
+ignore:
+  - gateway.loopback_no_auth  # We use Tailscale Serve
+  - models.weak_tier          # Intentionally using Haiku for testing
+
+# Custom severity overrides
+severity_overrides:
+  plugins.extensions_no_allowlist: info  # We trust our plugins
+
+# Fix behavior
+fix:
+  auto_backup: true
+  backup_dir: ~/.moltbot/backups
+  require_confirmation: true
+```
+
+## TUI Interface
+
+The hardener includes an interactive terminal UI:
+
+```
++------------------------------------------------------------------+
+|  MOLTBOT HARDENER v1.0.0                              [?] Help   |
++------------------------------------------------------------------+
+|                                                                  |
+|  Scan Progress                                                   |
+|  [========================================] 100%                 |
+|                                                                  |
+|  +------+----------+------------------------------------------+  |
+|  | Sev  | ID       | Title                                    |  |
+|  +------+----------+------------------------------------------+  |
+|  | CRIT | V01      | Gateway Exposure                         |  |
+|  | CRIT | V08      | Elevated Tool Access                     |  |
+|  | HIGH | V14      | DM Scope Context Leak                    |  |
+|  | WARN | V09      | No Audit Logging                         |  |
+|  | INFO | V22      | Legacy Model Risk                        |  |
+|  +------+----------+------------------------------------------+  |
+|                                                                  |
+|  Summary: 2 Critical | 1 High | 1 Warning | 1 Info               |
+|                                                                  |
+|  [F] Fix Selected  [A] Fix All  [R] Refresh  [Q] Quit            |
++------------------------------------------------------------------+
+```
+
+Use arrow keys to navigate, Enter to view details, F to fix selected.
+
+## Architecture
+
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for detailed information about how the hardener works.
+
+## Integration with Moltbot
+
+The hardener complements `moltbot security audit`:
+
+```bash
+# Native moltbot command (built-in)
+moltbot security audit --deep --fix
+
+# Hardener (extended checks + TUI)
+moltbot-hardener scan --fix
+```
+
+The hardener performs additional checks not in the built-in audit:
+- Deeper filesystem permission analysis
+- Cross-reference vulnerability chains
+- Historical configuration drift detection
+- Network exposure probing
+
+## Secure Defaults Template
+
+For a hardened configuration template, see [configs/secure-defaults.yaml](configs/secure-defaults.yaml).
+
+Apply it with:
+
+```bash
+moltbot-hardener apply-template secure-defaults
+```
+
+## Exit Codes
+
+| Code | Meaning |
+|------|---------|
+| 0 | No critical/high findings |
+| 1 | Critical findings present |
+| 2 | High findings present (with --fail-on high) |
+| 3 | Configuration error |
+| 4 | Runtime error |
+
+## Contributing
+
+Contributions welcome! Please read our security policy before submitting vulnerability reports.
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/new-check`)
+3. Add tests for new vulnerability checks
+4. Submit a pull request
+
+### Adding New Vulnerability Checks
+
+1. Create a check in `pkg/checks/`
+2. Add documentation in `docs/vulnerabilities/`
+3. Register in `pkg/scanner/registry.go`
+4. Add tests in `pkg/checks/*_test.go`
+
+## Security Policy
+
+Found a vulnerability in the hardener itself? Please report responsibly:
+
+1. Email: security@clawd.bot
+2. Do not post publicly until fixed
+3. We will credit you (unless you prefer anonymity)
+
+## License
+
+MIT License - see [LICENSE](LICENSE) for details.
+
+## Acknowledgments
+
+- Built for the [Moltbot](https://github.com/moltbot/moltbot) project
+- Security checks based on real-world incidents and the moltbot threat model
+- TUI powered by [bubbletea](https://github.com/charmbracelet/bubbletea)
+
+---
+
+*"Security is a process, not a product. The hardener helps you stay on top of it."*

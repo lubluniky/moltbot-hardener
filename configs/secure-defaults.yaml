@@ -1,0 +1,347 @@
+# Moltbot Secure Defaults Configuration
+# ======================================
+# This template provides a hardened baseline for moltbot installations.
+# Apply with: moltbot-hardener apply-template secure-defaults
+#
+# Review and customize for your environment before applying.
+# See: https://docs.molt.bot/gateway/security
+
+# =============================================================================
+# GATEWAY SECURITY
+# =============================================================================
+
+gateway:
+  # Bind only to loopback - never expose directly to network
+  bind: loopback
+  port: 18789
+
+  # Require authentication for all connections
+  # Generate a strong token: openssl rand -base64 32
+  auth:
+    mode: token
+    token: ${CLAWDBOT_GATEWAY_TOKEN}  # Set via environment variable
+
+  # Control UI security
+  controlUi:
+    enabled: true
+    # Never allow insecure auth over HTTP
+    allowInsecureAuth: false
+    # Never disable device auth
+    dangerouslyDisableDeviceAuth: false
+
+  # Tailscale integration (if used)
+  tailscale:
+    mode: "off"  # Set to "serve" for tailnet-only access, never "funnel"
+
+  # Trusted proxies (only if using reverse proxy)
+  # trustedProxies:
+  #   - "127.0.0.1"
+
+# =============================================================================
+# CHANNEL SECURITY
+# =============================================================================
+
+channels:
+  # Default policies for all channels
+  defaults:
+    # Require explicit allowlist for groups
+    groupPolicy: allowlist
+
+  # WhatsApp
+  whatsapp:
+    # Require pairing for DMs
+    dmPolicy: pairing
+    # Groups require mention
+    groups:
+      "*":
+        requireMention: true
+
+  # Telegram
+  telegram:
+    dm:
+      policy: pairing
+    # Groups require explicit configuration
+    groupPolicy: allowlist
+    # Limit who can use bot in groups
+    # groupAllowFrom: []
+
+  # Discord
+  discord:
+    dm:
+      policy: pairing
+    # Groups require mention
+    groupPolicy: allowlist
+
+  # Signal
+  signal:
+    dm:
+      policy: pairing
+    groupPolicy: allowlist
+
+  # Slack
+  slack:
+    dm:
+      policy: pairing
+    # Channels require explicit configuration
+    # channels: {}
+
+  # iMessage
+  imessage:
+    dm:
+      policy: pairing
+    groupPolicy: allowlist
+
+# =============================================================================
+# SESSION SECURITY
+# =============================================================================
+
+session:
+  # Isolate DM sessions per sender to prevent context leakage
+  # Options: main, per-channel-peer, per-account-channel-peer
+  dmScope: per-channel-peer
+
+  # For multi-account setups, use:
+  # dmScope: per-account-channel-peer
+
+# =============================================================================
+# COMMAND SECURITY
+# =============================================================================
+
+commands:
+  # Use access groups for command authorization
+  useAccessGroups: true
+
+  # Text commands (slash-style in messages)
+  text: true
+
+  # Native platform commands (Discord slash, Telegram bot commands)
+  native: true
+
+  # Skill commands
+  nativeSkills: true
+
+# =============================================================================
+# TOOL SECURITY
+# =============================================================================
+
+tools:
+  # Default tool profile
+  profile: default
+
+  # Deny dangerous tools by default
+  deny:
+    - "group:dangerous"
+
+  # Elevated mode (host execution) - KEEP RESTRICTED
+  elevated:
+    enabled: false  # Disable by default
+    # If enabled, keep allowlist extremely tight:
+    # allowFrom:
+    #   whatsapp: []
+    #   telegram: []
+    #   discord: []
+
+  # Web tools
+  web:
+    search:
+      enabled: true  # Only if you have API keys configured
+    fetch:
+      enabled: true
+
+  # Sandbox tool policy (when sandboxing is enabled)
+  sandbox:
+    tools:
+      allow:
+        - read
+        - write
+        - edit
+        - glob
+        - grep
+        - list
+        - image
+      deny:
+        - exec
+        - process
+        - browser
+        - "group:web"
+
+# =============================================================================
+# SANDBOX SECURITY
+# =============================================================================
+
+agents:
+  defaults:
+    # Enable sandboxing for non-main sessions
+    # Options: off, non-main, all
+    sandbox:
+      mode: non-main
+
+      # Sandbox scope - agent isolation by default
+      # Options: shared, agent, session
+      scope: agent
+
+      # Workspace access inside sandbox
+      # Options: none, ro, rw
+      workspaceAccess: ro
+
+      # Docker settings for sandbox containers
+      docker:
+        # Use official hardened image
+        image: ghcr.io/moltbot/sandbox:latest
+
+        # Read-only root filesystem
+        readOnlyRoot: true
+
+        # No network access by default
+        network: none
+
+        # Drop all capabilities
+        capDrop:
+          - ALL
+
+        # Resource limits
+        pidsLimit: 100
+        memory: 512m
+        cpus: 1
+
+    # Browser in sandbox
+    browser:
+      enabled: false
+      allowHostControl: false
+
+  # Example: define per-agent profiles
+  # list:
+  #   - id: personal
+  #     sandbox:
+  #       mode: "off"  # Full trust for personal agent
+  #
+  #   - id: family
+  #     sandbox:
+  #       mode: all
+  #       workspaceAccess: ro
+  #     tools:
+  #       deny: [exec, process, browser]
+  #
+  #   - id: public
+  #     sandbox:
+  #       mode: all
+  #       workspaceAccess: none
+  #     tools:
+  #       deny: [read, write, edit, exec, process, browser, canvas]
+
+# =============================================================================
+# BROWSER SECURITY
+# =============================================================================
+
+browser:
+  # Disable browser control by default
+  enabled: false
+
+  # If enabled:
+  # - Use a dedicated profile
+  # - Never use your daily-driver profile
+  # profile: clawd
+
+  # Remote CDP security
+  # cdpUrl: http://127.0.0.1:9222  # Loopback only
+
+# =============================================================================
+# LOGGING SECURITY
+# =============================================================================
+
+logging:
+  # Redact sensitive info in tool summaries
+  redactSensitive: tools
+
+  # Add custom redaction patterns for your environment
+  # redactPatterns:
+  #   - pattern: "sk-[a-zA-Z0-9]{48}"
+  #     replacement: "[OPENAI_KEY]"
+  #   - pattern: "xoxb-[0-9]+-[0-9]+-[a-zA-Z0-9]+"
+  #     replacement: "[SLACK_TOKEN]"
+
+  # Log file (ensure proper permissions)
+  # file: ~/.moltbot/logs/moltbot.log
+
+# =============================================================================
+# HOOKS SECURITY
+# =============================================================================
+
+hooks:
+  # Disable hooks unless needed
+  enabled: false
+
+  # If enabled:
+  # - Use a separate, strong token (not the gateway token)
+  # - Use environment variable for the token
+  # token: ${CLAWDBOT_HOOKS_TOKEN}
+
+  # Use a dedicated path, never "/"
+  # path: /hooks
+
+# =============================================================================
+# PLUGINS SECURITY
+# =============================================================================
+
+plugins:
+  # Explicitly allow only trusted plugins
+  # Without this, any discovered plugin may load
+  allow: []
+
+  # Example:
+  # allow:
+  #   - "@moltbot/voice-call"
+  #   - "@moltbot/matrix"
+
+# =============================================================================
+# DISCOVERY SECURITY
+# =============================================================================
+
+discovery:
+  mdns:
+    # Minimal mode omits sensitive info from broadcasts
+    # Options: off, minimal, full
+    mode: minimal
+
+# =============================================================================
+# MODEL SECURITY
+# =============================================================================
+
+# For tool-enabled agents, use modern instruction-hardened models
+# Avoid legacy models (GPT-3.5, Claude 2, etc.) for anything with tools
+
+# agents:
+#   defaults:
+#     model:
+#       primary: claude-opus-4-5-20251101
+#       fallbacks:
+#         - gpt-5
+
+# =============================================================================
+# FILESYSTEM PERMISSIONS CHECKLIST
+# =============================================================================
+
+# After applying this config, ensure proper permissions:
+#
+# chmod 700 ~/.moltbot
+# chmod 600 ~/.moltbot/moltbot.json
+# chmod 700 ~/.moltbot/credentials
+# chmod 600 ~/.moltbot/credentials/*.json
+# chmod 700 ~/.moltbot/agents/*/agent
+# chmod 600 ~/.moltbot/agents/*/agent/auth-profiles.json
+# chmod 700 ~/.moltbot/agents/*/sessions
+# chmod 600 ~/.moltbot/agents/*/sessions/sessions.json
+#
+# Or run: moltbot security audit --fix
+
+# =============================================================================
+# ENVIRONMENT VARIABLES
+# =============================================================================
+
+# Recommended environment variables (set in your shell profile or systemd unit):
+#
+# CLAWDBOT_GATEWAY_TOKEN=<strong-random-token>
+# CLAWDBOT_HOOKS_TOKEN=<different-strong-random-token>
+# CLAWDBOT_GATEWAY_PASSWORD=<if-using-password-auth>
+#
+# Do not store secrets directly in config files when possible.
