@@ -130,14 +130,16 @@ moltbot gateway uninstall
 ## Quick Start
 
 ```bash
-# One-liner install and run
-curl -fsSL https://raw.githubusercontent.com/lubluniky/moltbot-hardener/main/install-hardener.sh | bash && moltbot-hardener scan
+# One-liner install
+curl -fsSL https://raw.githubusercontent.com/lubluniky/moltbot-hardener/main/install-hardener.sh | bash
 
-# Or with npx (no install)
-npx moltbot-hardener scan
+# Run audit (safe while bot is running)
+hardener audit
 
-# Apply automatic fixes
-moltbot-hardener scan --fix
+# Apply fixes (stop bot first!)
+moltbot gateway stop
+hardener apply
+moltbot gateway start
 ```
 
 ## Features
@@ -218,25 +220,33 @@ Select option: _
 
 ## Installation
 
-### macOS / Linux
+### Quick Install (macOS / Linux)
 
 ```bash
-# Using curl
+# One-liner: downloads, builds, and installs to ~/.local/bin
 curl -fsSL https://raw.githubusercontent.com/lubluniky/moltbot-hardener/main/install-hardener.sh | bash
-
-# Using Homebrew
-brew install moltbot/tap/moltbot-hardener
-
-# Using npm
-npm install -g moltbot-hardener
 ```
+
+**Requirements:** Go 1.21+ (`brew install go` or `apt install golang`)
 
 ### From Source
 
 ```bash
 git clone https://github.com/lubluniky/moltbot-hardener.git
 cd moltbot-hardener
-go build -o moltbot-hardener ./cmd/hardener
+go build -o hardener ./cmd/hardener
+
+# Run directly
+./hardener audit
+
+# Or install to PATH
+sudo mv hardener /usr/local/bin/
+```
+
+### Using Go Install
+
+```bash
+go install github.com/lubluniky/moltbot-hardener/cmd/hardener@latest
 ```
 
 ## Usage
@@ -244,92 +254,94 @@ go build -o moltbot-hardener ./cmd/hardener
 ### Basic Scan
 
 ```bash
-# Scan default moltbot installation
-moltbot-hardener scan
+# Scan for vulnerabilities (safe while bot is running)
+hardener audit
 
-# Scan specific config file
-moltbot-hardener scan --config ~/.moltbot/moltbot.json
+# JSON output for CI/CD
+hardener audit --json
 
-# Scan specific state directory
-moltbot-hardener scan --state-dir ~/.moltbot
+# Verbose output
+hardener audit --verbose
+
+# List all available checks
+hardener list
 ```
 
 ### Apply Fixes
 
 ```bash
-# Interactive fix mode (prompts for each fix)
-moltbot-hardener scan --fix
+# IMPORTANT: Stop the gateway first!
+moltbot gateway stop
 
-# Auto-apply all safe fixes
-moltbot-hardener scan --fix --yes
+# Interactive mode (prompts for each fix)
+hardener apply
+
+# Auto-apply all fixes
+hardener apply --yes
 
 # Dry-run (show what would be fixed)
-moltbot-hardener scan --fix --dry-run
+hardener apply --dry-run
+
+# Force apply even if bot is running (not recommended)
+hardener apply --force
+
+# Restart gateway after fixes
+moltbot gateway start
+```
+
+### Fix Specific Vulnerability
+
+```bash
+# Fix a single vulnerability by ID
+hardener fix V01
+hardener fix V03 --dry-run
 ```
 
 ### Generate Reports
 
 ```bash
 # JSON report
-moltbot-hardener scan --output json > report.json
+hardener audit --json > report.json
 
-# Markdown report
-moltbot-hardener scan --output markdown > SECURITY_REPORT.md
-
-# HTML report
-moltbot-hardener scan --output html > report.html
+# Check dependencies
+hardener check-deps
 ```
 
-### Filter by Severity
+### Filter Checks
 
 ```bash
-# Only critical vulnerabilities
-moltbot-hardener scan --severity critical
+# Skip specific checks
+hardener audit --skip V01,V02
 
-# Critical and high
-moltbot-hardener scan --severity critical,high
-
-# Exclude info-level findings
-moltbot-hardener scan --min-severity medium
+# Run only specific checks
+hardener audit --only V03,V04,V05
 ```
 
-### Continuous Monitoring
+### Firewall Management
 
 ```bash
-# Watch mode (re-scan on config changes)
-moltbot-hardener watch
+# Check firewall status
+hardener firewall status
 
-# CI/CD mode (exit non-zero on critical findings)
-moltbot-hardener scan --ci --fail-on critical
+# Harden firewall (requires sudo)
+hardener firewall harden
 ```
 
-## Configuration Options
+### Bash Scripts
 
-Create `~/.moltbot-hardener.yaml` to customize behavior:
+The hardener also includes standalone bash scripts:
 
-```yaml
-# Default scan options
-scan:
-  config_path: ~/.moltbot/moltbot.json
-  state_dir: ~/.moltbot
-  include_filesystem: true
-  include_channels: true
-  deep_probe: false
+```bash
+# Full security audit
+./scripts/full-audit.sh
 
-# Findings to ignore (by check ID)
-ignore:
-  - gateway.loopback_no_auth  # We use Tailscale Serve
-  - models.weak_tier          # Intentionally using Haiku for testing
+# Harden specific components
+./scripts/harden-gateway.sh
+./scripts/harden-sandbox.sh
+./scripts/secure-credentials.sh
 
-# Custom severity overrides
-severity_overrides:
-  plugins.extensions_no_allowlist: info  # We trust our plugins
-
-# Fix behavior
-fix:
-  auto_backup: true
-  backup_dir: ~/.moltbot/backups
-  require_confirmation: true
+# Interactive menu
+./scripts/run-hardener.sh
 ```
 
 ## TUI Interface
@@ -372,61 +384,55 @@ The hardener complements `moltbot security audit`:
 
 ```bash
 # Native moltbot command (built-in)
-moltbot security audit --deep --fix
+moltbot security audit
 
 # Hardener (extended checks + TUI)
-moltbot-hardener scan --fix
+hardener audit
+hardener apply
 ```
 
 The hardener performs additional checks not in the built-in audit:
 - Deeper filesystem permission analysis
 - Cross-reference vulnerability chains
-- Historical configuration drift detection
 - Network exposure probing
+- Firewall configuration
 
 ## Secure Defaults Template
 
 For a hardened configuration template, see [configs/secure-defaults.yaml](configs/secure-defaults.yaml).
 
-Apply it with:
+You can use it as reference when running:
 
 ```bash
-moltbot-hardener apply-template secure-defaults
+hardener apply --yes
 ```
 
 ## Exit Codes
 
 | Code | Meaning |
 |------|---------|
-| 0 | No critical/high findings |
-| 1 | Critical findings present |
-| 2 | High findings present (with --fail-on high) |
-| 3 | Configuration error |
-| 4 | Runtime error |
+| 0 | Success / No critical findings |
+| 1 | Error or critical findings present |
 
 ## Contributing
 
-Contributions welcome! Please read our security policy before submitting vulnerability reports.
+Contributions welcome!
 
 1. Fork the repository
 2. Create a feature branch (`git checkout -b feature/new-check`)
-3. Add tests for new vulnerability checks
+3. Add tests for new checks
 4. Submit a pull request
 
 ### Adding New Vulnerability Checks
 
-1. Create a check in `pkg/checks/`
-2. Add documentation in `docs/vulnerabilities/`
-3. Register in `pkg/scanner/registry.go`
-4. Add tests in `pkg/checks/*_test.go`
+1. Create a check function in `pkg/audit/checks.go`
+2. Add documentation in `docs/vulnerabilities/V##-name.md`
+3. Register in the scanner
+4. Add tests in `pkg/audit/*_test.go`
 
 ## Security Policy
 
-Found a vulnerability in the hardener itself? Please report responsibly:
-
-1. Email: security@clawd.bot
-2. Do not post publicly until fixed
-3. We will credit you (unless you prefer anonymity)
+Found a vulnerability in the hardener itself? Please open an issue on GitHub.
 
 ## License
 
